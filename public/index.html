@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="aTorrent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>aTorrent</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="login" class="gate" hidden>
+  <form id="login-form" class="card gate-card">
+    <h1 class="logo">aTorrent</h1>
+    <p class="muted">Enter the password for this server.</p>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+    <button class="btn primary" type="submit">Unlock</button>
+    <p id="login-error" class="error" hidden></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1 class="logo">aTorrent</h1>
+    <div id="totals" class="muted small">—</div>
+  </header>
+
+  <form id="add-form" class="card add">
+    <div class="row">
+      <input id="magnet" type="text" inputmode="url" autocapitalize="off" autocorrect="off"
+             spellcheck="false" placeholder="Paste a magnet link…">
+      <button id="paste" class="btn ghost" type="button" title="Paste from clipboard">Paste</button>
+    </div>
+    <button id="add" class="btn primary" type="submit">Add torrent</button>
+    <p id="add-error" class="error" hidden></p>
+  </form>
+
+  <main id="list"></main>
+
+  <p id="empty" class="muted center" hidden>
+    Nothing downloading yet. Paste a magnet link above to start.
+  </p>
+
+  <footer class="muted small center">
+    Files download to this server, then you save them to your iPhone with the ⤓ button.
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
