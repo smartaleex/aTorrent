@@ -2,13 +2,16 @@
   "name": "atorrent",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-hosted magnet-link downloader with a mobile-first web UI. Add magnets from your phone, save finished files to it.",
+  "description": "Browser-only BitTorrent client with a phone-first UI, plus an optional server for classic swarms.",
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "web": "node scripts/serve-web.mjs",
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test/e2e.mjs"
+    "test": "node test/browser.mjs && node test/e2e.mjs",
+    "test:browser": "node test/browser.mjs",
+    "test:server": "node test/e2e.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -18,6 +21,7 @@
     "webtorrent": "^3.0.21"
   },
   "devDependencies": {
-    "bittorrent-tracker": "^11.2.3"
+    "bittorrent-tracker": "^11.2.3",
+    "playwright": "1.63.0"
   }
 }

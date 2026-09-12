@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="aTorrent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>aTorrent</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1 class="logo">aTorrent</h1>
+  <div id="totals" class="muted small">—</div>
+</header>
+
+<form id="add-form" class="card add">
+  <div class="row">
+    <input id="magnet" type="text" inputmode="url" autocapitalize="off" autocorrect="off"
+           spellcheck="false" placeholder="Paste a magnet link…">
+    <button id="paste" class="btn ghost" type="button" title="Paste from clipboard">Paste</button>
+  </div>
+  <button id="add" class="btn primary" type="submit">Add torrent</button>
+  <p id="add-error" class="error" hidden></p>
+</form>
+
+<main id="list"></main>
+
+<p id="empty" class="muted center">
+  Nothing downloading yet. Paste a magnet link above to start.
+</p>
+
+<section class="card">
+  <details id="seed-panel">
+    <summary>Share a file from this phone</summary>
+    <p class="muted small">
+      Pick a file and aTorrent seeds it straight from this device. Send someone the
+      magnet link and they download it peer-to-peer — nothing is uploaded to a server.
+    </p>
+    <input id="seed-file" type="file" multiple>
+    <p id="seed-error" class="error" hidden></p>
+  </details>
+</section>
+
+<footer class="muted small">
+  <p id="engine-status">Starting…</p>
+  <p>
+    Everything runs in this browser tab over WebRTC — no server, no account. That
+    also means it only reaches peers that speak WebRTC (other aTorrent or WebTorrent
+    users, and hybrid desktop clients), not the whole classic BitTorrent swarm.
+    Keep the tab open while downloading.
+  </p>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
