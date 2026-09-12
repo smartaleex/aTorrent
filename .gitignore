@@ -1,0 +1,5 @@
+node_modules/
+downloads/
+data/torrents.json
+*.log
+.DS_Store
