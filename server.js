@@ -10,7 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const PORT = Number(process.env.PORT || 8080)
 const DOWNLOAD_DIR = path.resolve(process.env.ATORRENT_DOWNLOAD_DIR || path.join(__dirname, 'downloads'))
-const STATE_FILE = path.join(__dirname, 'data', 'torrents.json')
+// On a hosted box this belongs on the mounted volume, next to the downloads.
+const STATE_FILE = path.resolve(
+  process.env.ATORRENT_STATE_FILE || path.join(__dirname, 'data', 'torrents.json')
+)
 const PASSWORD = process.env.ATORRENT_PASSWORD || ''
 const MAX_TORRENTS = Number(process.env.ATORRENT_MAX_TORRENTS || 25)
 

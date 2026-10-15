@@ -1,0 +1,19 @@
+# Any machine with Docker: a NAS, a home server, a $5 VPS.
+#   ATORRENT_PASSWORD='something' docker compose up -d
+services:
+  atorrent:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "6881:6881/tcp"
+      - "6881:6881/udp"
+    environment:
+      # No default on purpose: starting without a password should be a choice.
+      ATORRENT_PASSWORD: ${ATORRENT_PASSWORD:?set ATORRENT_PASSWORD before starting}
+      ATORRENT_MAX_TORRENTS: ${ATORRENT_MAX_TORRENTS:-25}
+    volumes:
+      - atorrent-data:/data
+
+volumes:
+  atorrent-data:

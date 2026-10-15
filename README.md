@@ -93,6 +93,47 @@ phone talks to it over plain HTTP from the same mobile UI.
 ATORRENT_PASSWORD='pick-something' npm start   # http://<that-machine>:8080
 ```
 
+It prints the LAN address to open from your phone, not just a loopback URL.
+
+### Hosted: the Bitport shape
+
+Services like Bitport are seedboxes — their servers do the torrenting and give
+you a web UI to stream and save from. Server mode is the same thing; the only
+question is whose machine it runs on. Host it yourself and you get that setup
+without an account, a monthly fee, or someone else holding your files.
+
+**Any machine with Docker** (a NAS, a home server, a cheap VPS):
+
+```bash
+ATORRENT_PASSWORD='something' docker compose up -d
+```
+
+**Fly.io**, if you want it off your own hardware and reachable from anywhere:
+
+```bash
+fly launch --copy-config --no-deploy
+fly volume create atorrent_data --size 10     # GB of download space
+fly secrets set ATORRENT_PASSWORD=something
+fly deploy
+```
+
+That gives you `https://<your-app>.fly.dev` — https, so the phone talks to it
+directly, and the Add to Home Screen icon works exactly as in browser mode.
+`auto_stop_machines` is off in `fly.toml` on purpose: a machine that idles out
+is a machine that stopped downloading.
+
+Things worth knowing before you pick a host:
+
+- **Storage is the cost.** Downloads sit on the volume until you remove them,
+  so size it for what you actually keep and delete torrents when you are done.
+- **Inbound peer traffic.** The container exposes 6881 for peers that dial in.
+  Behind a platform that only routes http, aTorrent still reaches every peer it
+  dials itself — you just get fewer of them, and slower swarms.
+- **Check the host's terms.** General-purpose cloud providers are not seedbox
+  providers, and some prohibit torrent traffic outright regardless of what you
+  are downloading. Hosts that advertise seedboxes exist precisely because of
+  this.
+
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `PORT` | `8080` | Port to listen on |
