@@ -111,6 +111,15 @@ try {
     method: 'POST', body: JSON.stringify({ paused: true })
   })).json()
   check('torrent can be paused', paused.paused === true)
+  check('pausing drops the peer connections', paused.peers === 0, `${paused.peers} peers`)
+  check('the paused state is written to the resume file',
+    JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'torrents.json'), 'utf8'))
+      .some((entry) => entry.infoHash === state.infoHash && entry.paused === true))
+
+  const resumed = await (await call(`/api/torrents/${state.infoHash}/pause`, {
+    method: 'POST', body: JSON.stringify({ paused: false })
+  })).json()
+  check('torrent can be resumed', resumed.paused === false)
 
   const removed = await call(`/api/torrents/${state.infoHash}?files=delete`, { method: 'DELETE' })
   check('torrent can be removed', removed.ok)

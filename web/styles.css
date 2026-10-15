@@ -105,6 +105,14 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
   transition: width 0.4s ease;
 }
 .bar.done > div { background: var(--ok); }
+.bar.paused > div { background: #5b657d; }
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.toolbar .btn { flex: 1; }
 
 .stats {
   display: flex;

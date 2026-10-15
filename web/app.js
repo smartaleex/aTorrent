@@ -62,18 +62,32 @@ function kindOf (name) {
 
 /* ------------------------------------------------------------- persistence --- */
 
+// Entries are { uri, paused }. Older versions stored bare magnet strings, so
+// anything that is still a string gets read as a running torrent.
 const remembered = () => {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || [] } catch { return [] }
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY)) || []
+    return raw.map((entry) => (typeof entry === 'string' ? { uri: entry, paused: false } : entry))
+  } catch {
+    return []
+  }
 }
 
-function remember (magnetURI) {
+const save = (entries) => localStorage.setItem(STORE_KEY, JSON.stringify(entries))
+
+function remember (magnetURI, paused = false) {
   const all = remembered()
-  if (!all.includes(magnetURI)) localStorage.setItem(STORE_KEY, JSON.stringify([...all, magnetURI]))
+  if (!all.some((entry) => entry.uri === magnetURI)) save([...all, { uri: magnetURI, paused }])
+}
+
+function rememberPaused (infoHash, paused) {
+  save(remembered().map((entry) => (
+    entry.uri.toLowerCase().includes(infoHash.toLowerCase()) ? { ...entry, paused } : entry
+  )))
 }
 
 function forget (infoHash) {
-  const kept = remembered().filter((uri) => !uri.toLowerCase().includes(infoHash.toLowerCase()))
-  localStorage.setItem(STORE_KEY, JSON.stringify(kept))
+  save(remembered().filter((entry) => !entry.uri.toLowerCase().includes(infoHash.toLowerCase())))
 }
 
 /* ------------------------------------------------------------- the engine --- */
@@ -105,19 +119,40 @@ async function startStreaming () {
   }
 }
 
-function addMagnet (magnetURI) {
+function addMagnet (magnetURI, { paused = false } = {}) {
   const uri = magnetURI.trim()
   if (!MAGNET_RE.test(uri)) throw new Error('That does not look like a magnet link.')
   const infoHash = uri.match(MAGNET_RE)[1].toLowerCase()
   if (client.torrents.some((t) => t.infoHash === infoHash)) {
     throw new Error('That torrent is already in the list.')
   }
-  const torrent = client.add(uri, { announce: TRACKERS })
+  const torrent = client.add(uri, { announce: TRACKERS, paused })
   torrent.atAddedAt = Date.now()
   torrent.atEverHadPeers = false
   torrent.on('error', (err) => console.error('[torrent]', err.message))
-  remember(uri)
+  remember(uri, paused)
   return torrent
+}
+
+// WebTorrent's own pause() only refuses *new* peers — the connections already
+// open keep sending pieces — so stopping for real means dropping those wires
+// too. Resuming asks the tracker for peers again rather than waiting out the
+// next announce interval.
+function setPaused (torrent, paused) {
+  if (paused) {
+    torrent.pause()
+    for (const wire of [...torrent.wires]) wire.destroy()
+  } else {
+    torrent.resume()
+    try { torrent.discovery?.tracker?.update?.() } catch { /* announce when it can */ }
+  }
+  rememberPaused(torrent.infoHash, paused)
+  draw()
+}
+
+function setPausedAll (paused) {
+  // Finished torrents included: they are seeding, and that is worth stopping.
+  for (const torrent of client.torrents) setPaused(torrent, paused)
 }
 
 client.on('error', (err) => showError($('add-error'), err.message))
@@ -139,6 +174,9 @@ $('add-form').addEventListener('submit', (event) => {
     showError($('add-error'), err.message)
   }
 })
+
+$('pause-all').addEventListener('click', () => setPausedAll(true))
+$('resume-all').addEventListener('click', () => setPausedAll(false))
 
 $('paste').addEventListener('click', async () => {
   try {
@@ -174,6 +212,8 @@ let lastSignature = ''
 function draw () {
   const torrents = client.torrents
   $('empty').hidden = torrents.length > 0
+  // Only worth showing once there is more than one thing to act on.
+  $('toolbar').hidden = torrents.length < 2
   $('totals').textContent = torrents.length
     ? `↓ ${speed(client.downloadSpeed)}  ↑ ${speed(client.uploadSpeed)}`
     : '—'
@@ -223,14 +263,20 @@ function card (torrent) {
   const actions = document.createElement('div')
   actions.className = 'actions'
 
+  const pause = document.createElement('button')
+  pause.className = 'btn small'
+  pause.dataset.role = 'pause'
+  pause.addEventListener('click', () => setPaused(torrent, !torrent.paused))
+  actions.appendChild(pause)
+
   const copy = document.createElement('button')
   copy.className = 'btn small'
-  copy.textContent = 'Copy magnet'
+  copy.textContent = '⧉ Magnet'
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(torrent.magnetURI)
       copy.textContent = 'Copied'
-      setTimeout(() => { copy.textContent = 'Copy magnet' }, 1500)
+      setTimeout(() => { copy.textContent = '⧉ Magnet' }, 1500)
     } catch {
       prompt('Copy this magnet link:', torrent.magnetURI)
     }
@@ -351,6 +397,7 @@ function patch (torrent) {
 
   if (torrent.numPeers > 0) torrent.atEverHadPeers = true
   const stalled = !done &&
+    !torrent.paused &&
     torrent.numPeers === 0 &&
     !torrent.atEverHadPeers &&
     Date.now() - (torrent.atAddedAt || 0) > STALLED_AFTER
@@ -360,14 +407,17 @@ function patch (torrent) {
 
   const bar = el.querySelector('[data-role=bar]')
   bar.classList.toggle('done', done)
+  bar.classList.toggle('paused', torrent.paused && !done)
   bar.firstChild.style.width = `${pct}%`
 
   el.querySelector('[data-role=stats]').textContent = [
-    torrent.ready ? (done ? 'Done' : `${pct}%`) : (stalled ? 'No reachable peers' : 'Looking for peers…'),
+    torrent.paused ? (done ? 'Paused · seeding stopped' : `Paused · ${pct}%`)
+      : torrent.ready ? (done ? 'Done' : `${pct}%`)
+        : (stalled ? 'No reachable peers' : 'Looking for peers…'),
     torrent.length ? `${bytes(torrent.downloaded)} of ${bytes(torrent.length)}` : '',
     `↓ ${speed(torrent.downloadSpeed)}`,
     `${torrent.numPeers} peers`,
-    done || !torrent.ready ? '' : `ETA ${eta(torrent.timeRemaining)}`
+    done || torrent.paused || !torrent.ready ? '' : `ETA ${eta(torrent.timeRemaining)}`
   ].filter(Boolean).join(' · ')
 
   const notice = el.querySelector('[data-role=notice]')
@@ -380,6 +430,11 @@ function patch (torrent) {
       'To download this one you need <em>server mode</em>: run aTorrent\'s Node ' +
       'server on a computer at home and open it from this phone.'
   }
+
+  const pause = el.querySelector('[data-role=pause]')
+  // Still offered on a finished torrent: it is seeding to other people, and
+  // pausing is how you stop that.
+  pause.textContent = torrent.paused ? '▶ Resume' : '❚❚ Pause'
 
   const files = el.querySelector('[data-role=files]')
   if (files.childElementCount === 0 && torrent.files.length) {
@@ -416,8 +471,10 @@ startStreaming().then((mode) => {
   $('engine-status').textContent = `${notes[mode]} ${store}`
 })
 
-for (const uri of remembered()) {
-  try { addMagnet(uri) } catch (err) { console.warn('could not restore', err.message) }
+for (const entry of remembered()) {
+  try { addMagnet(entry.uri, { paused: entry.paused }) } catch (err) {
+    console.warn('could not restore', err.message)
+  }
 }
 
 setInterval(draw, 1000)

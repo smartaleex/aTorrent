@@ -154,6 +154,42 @@ try {
     (await notice.textContent()).includes('No WebRTC peers'))
   check('its status stops claiming it is still looking',
     (await stallPage.locator('#list [data-role=stats]').first().textContent()).includes('No reachable peers'))
+  // ---- pause / resume, with a live peer connection ----------------------
+  await stallPage.fill('#magnet', magnet)
+  await stallPage.click('#add')
+  // The seeder now has a real wire to this page, and keeps it after the
+  // transfer finishes, so pausing there has something to actually sever.
+  await seedPage.waitForFunction(
+    () => window.atorrent.client.torrents[0].wires.length > 0,
+    null, { timeout: 30000 })
+
+  await seedPage.locator('#list [data-role=pause]').click()
+  check('pausing marks the torrent paused',
+    await seedPage.evaluate(() => window.atorrent.client.torrents[0].paused) === true)
+  check('pausing drops the live peer connections, not just the label',
+    await seedPage.evaluate(() => window.atorrent.client.torrents[0].wires.length) === 0)
+  check('the button offers to resume',
+    (await seedPage.locator('#list [data-role=pause]').textContent()).includes('Resume'))
+  check('the status line says paused',
+    (await seedPage.locator('#list [data-role=stats]').textContent()).includes('Paused'))
+
+  await seedPage.reload()
+  await seedPage.waitForFunction(() => window.atorrent?.client.torrents.length === 1, null, { timeout: 30000 })
+  check('a paused torrent comes back paused after a reload',
+    await seedPage.evaluate(() => window.atorrent.client.torrents[0].paused) === true)
+
+  await seedPage.locator('#list [data-role=pause]').click()
+  check('resuming clears the paused flag',
+    await seedPage.evaluate(() => window.atorrent.client.torrents[0].paused) === false)
+
+  // ---- pause all / resume all -------------------------------------------
+  await stallPage.locator('#toolbar').waitFor({ state: 'visible', timeout: 15000 })
+  await stallPage.locator('#pause-all').click()
+  check('pause all stops every running torrent',
+    await stallPage.evaluate(() => window.atorrent.client.torrents.every((t) => t.paused)))
+  await stallPage.locator('#resume-all').click()
+  check('resume all starts them again',
+    await stallPage.evaluate(() => window.atorrent.client.torrents.every((t) => !t.paused)))
   await stallPage.close()
 
   await page.screenshot({ path: '/tmp/claude-0/web-ui.png', fullPage: true })

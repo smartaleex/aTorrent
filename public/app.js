@@ -89,6 +89,18 @@ $('add-form').addEventListener('submit', async (event) => {
   }
 })
 
+async function setPausedAll (paused) {
+  const { torrents } = await api('/api/torrents')
+  await Promise.all(torrents.map((torrent) => api(`/api/torrents/${torrent.infoHash}/pause`, {
+    method: 'POST',
+    body: JSON.stringify({ paused })
+  })))
+  await refresh()
+}
+
+$('pause-all').addEventListener('click', () => setPausedAll(true))
+$('resume-all').addEventListener('click', () => setPausedAll(false))
+
 $('paste').addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText()
@@ -115,6 +127,7 @@ function render (data) {
   const torrents = data.torrents
 
   $('empty').hidden = torrents.length > 0
+  $('toolbar').hidden = torrents.length < 2
   $('totals').textContent = torrents.length
     ? `↓ ${speed(data.totals.downloadSpeed)}  ↑ ${speed(data.totals.uploadSpeed)}`
     : '—'
@@ -228,9 +241,12 @@ function patch (torrent) {
 
   const bar = el.querySelector('[data-role=bar]')
   bar.classList.toggle('done', torrent.done)
+  bar.classList.toggle('paused', torrent.paused && !torrent.done)
   bar.firstChild.style.width = `${pct}%`
 
-  const status = torrent.done ? 'Done' : torrent.paused ? 'Paused' : `${pct}%`
+  const status = torrent.paused
+    ? (torrent.done ? 'Paused · seeding stopped' : `Paused · ${pct}%`)
+    : torrent.done ? 'Done' : `${pct}%`
   el.querySelector('[data-role=stats]').textContent = [
     status,
     `${bytes(torrent.downloaded)} of ${bytes(torrent.length)}`,
@@ -240,9 +256,8 @@ function patch (torrent) {
   ].filter(Boolean).join(' · ')
 
   const pause = el.querySelector('[data-role=pause]')
-  pause.textContent = torrent.paused ? 'Resume' : 'Pause'
+  pause.textContent = torrent.paused ? '▶ Resume' : '❚❚ Pause'
   pause.dataset.paused = String(torrent.paused)
-  pause.hidden = torrent.done
 
   // A file is only worth saving once its bytes are all here.
   for (const link of el.querySelectorAll('[data-role=save]')) {

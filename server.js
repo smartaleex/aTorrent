@@ -35,6 +35,7 @@ function saveState () {
   const entries = client.torrents.map((t) => ({
     infoHash: t.infoHash,
     magnetURI: t.magnetURI,
+    paused: Boolean(t.atPaused),
     addedAt: t.atAddedAt || Date.now()
   }))
   fs.writeFileSync(STATE_FILE, JSON.stringify(entries, null, 2))
@@ -180,13 +181,24 @@ app.post('/api/torrents', async (req, res) => {
   }
 })
 
-app.post('/api/torrents/:infoHash/pause', (req, res) => {
+app.post('/api/torrents/:infoHash/pause', async (req, res) => {
   const torrent = getTorrent(req, res)
   if (!torrent) return
   const pause = req.body?.paused !== false
   torrent.atPaused = pause
-  if (pause) torrent.pause()
-  else torrent.resume()
+  if (pause) {
+    // pause() only refuses new peers; the open connections keep transferring,
+    // so stopping for real means dropping those too.
+    torrent.pause()
+    for (const wire of [...torrent.wires]) wire.destroy()
+    // Wire teardown finishes on the next tick; wait for it so the response
+    // reports the peer count the caller will actually see.
+    await new Promise((resolve) => setImmediate(resolve))
+  } else {
+    torrent.resume()
+    try { torrent.discovery?.tracker?.update?.() } catch { /* next announce will do */ }
+  }
+  saveState()
   res.json(describe(torrent))
 })
 
@@ -249,7 +261,13 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }))
 
 for (const entry of loadState()) {
   addTorrent(entry.magnetURI)
-    .then((t) => { t.atAddedAt = entry.addedAt || Date.now() })
+    .then((t) => {
+      t.atAddedAt = entry.addedAt || Date.now()
+      if (entry.paused) {
+        t.atPaused = true
+        t.pause()
+      }
+    })
     .catch((err) => console.error('[resume]', err.message))
 }
 

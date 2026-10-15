@@ -64,6 +64,14 @@ you https for free on a static directory.
 Keep the tab in the foreground while downloading — iOS suspends background tabs,
 which drops the peer connections.
 
+**Pause and resume.** Each torrent has a **❚❚ Pause** button, and a **Pause all
+/ Resume all** bar appears once you have more than one. Pausing severs the live
+peer connections rather than only refusing new ones, so the transfer really
+stops; what has already downloaded is kept, and resuming asks the tracker for
+peers again instead of waiting out the next announce. A finished torrent keeps
+its Pause button, because it is still seeding to other people and stopping that
+is the point. Paused torrents stay paused across a reload.
+
 Other things it does:
 
 - **Share a file from this phone** seeds a file straight off the device and gives
@@ -106,7 +114,7 @@ cookie marks itself `Secure` automatically once you serve it over https.
 | `POST` | `/api/login` | `{ "password": "…" }` → sets the auth cookie |
 | `GET` | `/api/torrents` | All torrents with live progress |
 | `POST` | `/api/torrents` | `{ "magnet": "magnet:?xt=…" }` |
-| `POST` | `/api/torrents/:infoHash/pause` | `{ "paused": true \| false }` |
+| `POST` | `/api/torrents/:infoHash/pause` | `{ "paused": true \| false }` — drops live connections, survives restart |
 | `DELETE` | `/api/torrents/:infoHash` | `?files=keep` leaves files on disk |
 | `GET` | `/api/torrents/:infoHash/files/:index` | Download a file (supports `Range`) |
 
