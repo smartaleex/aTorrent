@@ -61,6 +61,13 @@ you https for free on a static directory.
    Files under *On My iPhone → Downloads*. **Play** streams video or audio
    immediately, without waiting for the rest.
 
+To have saved files go to iCloud Drive instead of local storage, set
+**Settings → Apps → Safari → Downloads → iCloud Drive** — they then sync to your
+other devices, against your iCloud quota. Note that iCloud can only be the
+destination: it stores files, it does not run code, so it cannot do the
+downloading itself. Until you tap Save, a torrent's data lives in the browser's
+own storage and is not a file in Files at all.
+
 Keep the tab in the foreground while downloading — iOS suspends background tabs,
 which drops the peer connections.
 
