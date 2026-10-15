@@ -18,9 +18,18 @@ download has finished.
 **What it reaches.** Browsers can only open WebRTC connections, so aTorrent sees
 the WebRTC side of a swarm: other aTorrent and WebTorrent users, and desktop
 clients running in hybrid mode. It cannot connect to the plain TCP/uTP peers that
-make up most of a typical public torrent. A magnet with no WebRTC seeds will sit
-at 0% with 0 peers — that is the trade for needing nothing installed. Server mode
-covers that case.
+make up most of a typical public torrent.
+
+This is the thing to understand before you try a torrent off a public site. A
+listing showing **156 seeders** is counting TCP peers, and a browser tab can
+reach none of them — the seed count says nothing about whether this app can
+download it. Expect most public magnets to sit at 0 peers. After 45 seconds
+without a peer the torrent says so plainly instead of claiming it is still
+looking. Browser mode is for torrents that have WebRTC seeds: files shared
+between aTorrent or WebTorrent users, Internet Archive's WebTorrent-enabled
+items, and anything you seed yourself from the **Share a file from this phone**
+panel. For everything else, use server mode below — it is a real BitTorrent
+client with real sockets.
 
 **Storage.** Downloads are written to the browser's own storage (OPFS) as they
 arrive, so a download is not capped by RAM. Saving a file to the Files app is,

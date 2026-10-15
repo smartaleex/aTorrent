@@ -1,6 +1,7 @@
 import express from 'express'
 import WebTorrent from 'webtorrent'
 import crypto from 'node:crypto'
+import os from 'node:os'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -252,8 +253,19 @@ for (const entry of loadState()) {
     .catch((err) => console.error('[resume]', err.message))
 }
 
+// The whole point of server mode is opening it from a phone, so print the
+// address that phone needs rather than a loopback one it cannot reach.
+function lanURLs () {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((iface) => iface && iface.family === 'IPv4' && !iface.internal)
+    .map((iface) => `http://${iface.address}:${PORT}`)
+}
+
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`aTorrent listening on http://0.0.0.0:${PORT}`)
+  console.log('aTorrent server mode is running.')
+  console.log(`  On this machine:  http://localhost:${PORT}`)
+  for (const url of lanURLs()) console.log(`  From your phone:  ${url}`)
   console.log(`Saving downloads to ${DOWNLOAD_DIR}`)
   if (!PASSWORD) console.log('No ATORRENT_PASSWORD set — anyone who can reach this port can use it.')
 })

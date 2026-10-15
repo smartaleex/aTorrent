@@ -140,6 +140,22 @@ try {
   await page.waitForFunction(() => window.atorrent.client.torrents.length === 0, null, { timeout: 15000 })
   check('a torrent can be removed', await page.locator('#list .card').count() === 0)
 
+  // A magnet nobody is seeding: the UI must explain itself rather than claim
+  // it is still looking.
+  const orphan = 'magnet:?xt=urn:btih:c6a5f797b392b0c4ce50c3a274e4fd5573ffe92d&dn=Unreachable'
+  const stallPage = await leecher.newPage()
+  await stallPage.goto(`${url}&stalled=3`)
+  await stallPage.waitForFunction(() => window.atorrent !== undefined)
+  await stallPage.fill('#magnet', orphan)
+  await stallPage.click('#add')
+  const notice = stallPage.locator('#list .notice')
+  await notice.waitFor({ state: 'visible', timeout: 20000 })
+  check('a torrent with no WebRTC peers explains why',
+    (await notice.textContent()).includes('No WebRTC peers'))
+  check('its status stops claiming it is still looking',
+    (await stallPage.locator('#list [data-role=stats]').first().textContent()).includes('No reachable peers'))
+  await stallPage.close()
+
   await page.screenshot({ path: '/tmp/claude-0/web-ui.png', fullPage: true })
 } catch (err) {
   console.error(err)

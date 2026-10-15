@@ -19,6 +19,9 @@ const extraTrackers = new URLSearchParams(location.search).getAll('tracker')
 const TRACKERS = extraTrackers.length ? extraTrackers : DEFAULT_TRACKERS
 
 const STORE_KEY = 'atorrent.magnets'
+// How long a torrent may sit at zero peers before we stop saying "looking"
+// and explain what is actually going on. ?stalled=<seconds> overrides it.
+const STALLED_AFTER = Number(new URLSearchParams(location.search).get('stalled') || 45) * 1000
 const MAGNET_RE = /^magnet:\?xt=urn:btih:([a-zA-Z0-9]{32,40})/i
 
 const client = new WebTorrent({ tracker: { announce: TRACKERS } })
@@ -110,6 +113,8 @@ function addMagnet (magnetURI) {
     throw new Error('That torrent is already in the list.')
   }
   const torrent = client.add(uri, { announce: TRACKERS })
+  torrent.atAddedAt = Date.now()
+  torrent.atEverHadPeers = false
   torrent.on('error', (err) => console.error('[torrent]', err.message))
   remember(uri)
   return torrent
@@ -203,6 +208,12 @@ function card (torrent) {
   stats.className = 'stats'
   stats.dataset.role = 'stats'
   el.appendChild(stats)
+
+  const notice = document.createElement('div')
+  notice.className = 'notice'
+  notice.dataset.role = 'notice'
+  notice.hidden = true
+  el.appendChild(notice)
 
   const files = document.createElement('div')
   files.className = 'files'
@@ -338,6 +349,13 @@ function patch (torrent) {
   const done = torrent.progress === 1
   const pct = Math.round(torrent.progress * 100)
 
+  if (torrent.numPeers > 0) torrent.atEverHadPeers = true
+  const stalled = !done &&
+    torrent.numPeers === 0 &&
+    !torrent.atEverHadPeers &&
+    Date.now() - (torrent.atAddedAt || 0) > STALLED_AFTER
+
+
   el.querySelector('[data-role=name]').textContent = torrent.name || 'Finding peers…'
 
   const bar = el.querySelector('[data-role=bar]')
@@ -345,12 +363,23 @@ function patch (torrent) {
   bar.firstChild.style.width = `${pct}%`
 
   el.querySelector('[data-role=stats]').textContent = [
-    torrent.ready ? (done ? 'Done' : `${pct}%`) : 'Looking for peers…',
+    torrent.ready ? (done ? 'Done' : `${pct}%`) : (stalled ? 'No reachable peers' : 'Looking for peers…'),
     torrent.length ? `${bytes(torrent.downloaded)} of ${bytes(torrent.length)}` : '',
     `↓ ${speed(torrent.downloadSpeed)}`,
     `${torrent.numPeers} peers`,
     done || !torrent.ready ? '' : `ETA ${eta(torrent.timeRemaining)}`
   ].filter(Boolean).join(' · ')
+
+  const notice = el.querySelector('[data-role=notice]')
+  notice.hidden = !stalled
+  if (stalled && !notice.childElementCount) {
+    notice.innerHTML = '<strong>No WebRTC peers for this torrent.</strong> ' +
+      'A seed count on a torrent site counts classic TCP peers, which no browser ' +
+      'tab can connect to — only peers that also speak WebRTC are reachable from ' +
+      'here, and most public torrents have none. Nothing is wrong with the link. ' +
+      'To download this one you need <em>server mode</em>: run aTorrent\'s Node ' +
+      'server on a computer at home and open it from this phone.'
+  }
 
   const files = el.querySelector('[data-role=files]')
   if (files.childElementCount === 0 && torrent.files.length) {
